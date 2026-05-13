@@ -1,0 +1,125 @@
+# SVD Image Compression
+
+A self-contained Python demo that compresses a synthetic grayscale image using **Singular Value Decomposition (SVD)** and analyses the quality–compression trade-off across a range of ranks.
+
+---
+
+## Overview
+
+The script builds a 256 × 256 synthetic test image (two circles, a rectangle, a gradient, and mild Gaussian noise), factorises it with NumPy's SVD, and then reconstructs it at progressively higher ranks. Three figures are produced that together show how image quality and storage cost scale with the number of singular values retained.
+
+---
+
+## Requirements
+
+| Package | Purpose |
+|---------|---------|
+| `numpy` | SVD, array maths |
+| `matplotlib` | Plotting & figure export |
+| `Pillow` | Image utilities (`PIL`) |
+
+Install with:
+
+```bash
+pip install numpy matplotlib Pillow
+```
+
+---
+
+## Usage
+
+```bash
+python svd_compression.py
+```
+
+No arguments are needed. The script runs end-to-end and saves three PNG figures to the working directory.
+
+---
+
+## What the Script Does
+
+### 1. Image Generation
+A 256 × 256 float64 array is created with:
+- a linear gradient background
+- two circular blobs at (80, 80) r=40 and (170, 160) r=55
+- a rectangular region at rows 100–180, columns 10–60
+- additive Gaussian noise (σ = 0.05)
+
+Values are clipped to [0, 1].
+
+### 2. SVD Factorisation
+```
+img ≈ U · diag(S) · Vₜ
+```
+`numpy.linalg.svd` is called with `full_matrices=False`, giving thin U (256 × 256), S (256,), and Vₜ (256 × 256).
+
+### 3. Rank-k Reconstruction
+A rank-k approximation keeps only the first k singular values/vectors:
+```
+Aₖ = U[:, :k] · diag(S[:k]) · Vₜ[:k, :]
+```
+
+### 4. Metrics
+
+**PSNR (Peak Signal-to-Noise Ratio)**  
+```
+PSNR = 10 · log₁₀(1 / MSE)   [dB]
+```
+Higher is better. ≥ 30 dB is considered good; ≥ 40 dB excellent.
+
+**Compression Ratio**  
+```
+CR = (m × n) / (k × (m + n + 1))
+```
+Ratio of original pixel count to the number of floats stored in the truncated factorisation.
+
+**Storage %**  
+```
+storage% = k × (m + n + 1) / (m × n) × 100
+```
+
+### 5. Energy Thresholds
+The script reports the minimum k needed to capture 90 % and 99 % of the total singular-value energy (sum of σᵢ²).
+
+---
+
+## Output
+
+### Console
+```
+Image shape: 256 x 256  |  Total pixels: 65536
+90% energy at k = <k90>
+99% energy at k = <k99>
+
+    Rank k |  PSNR (dB) |  Comp. Ratio |  Storage %
+----------------------------------------------------
+         1 |      ...   |        ...   |      ...%
+         5 |      ...   |        ...   |      ...%
+        10 |      ...   |        ...   |      ...%
+        20 |      ...   |        ...   |      ...%
+        50 |      ...   |        ...   |      ...%
+       100 |      ...   |        ...   |      ...%
+```
+
+### Figures
+
+| File | Contents |
+|------|----------|
+| `figure1_rank_comparison.png` | Side-by-side original vs. rank-1/5/10/20/50/100 reconstructions |
+| `figure2_singular_values.png` | Singular value decay (log scale) + cumulative energy curve |
+| `figure3_psnr_vs_rank.png` | PSNR vs. rank k and compression ratio vs. rank k |
+
+---
+
+## Key Concepts
+
+- **Low-rank approximation** — most of the image's visual information is captured by a small number of dominant singular values; the rest encode fine detail and noise.
+- **Energy threshold** — retaining k values that account for 90 % of σᵢ² energy usually gives a visually acceptable reconstruction at a significant compression ratio.
+- **PSNR plateau** — quality improves rapidly for small k, then flattens; the compression ratio drops steeply as k grows, so there is a clear sweet spot.
+
+---
+
+## Notes
+
+- The synthetic image is regenerated fresh each run due to the random noise term, so exact numeric outputs will vary slightly between runs.
+- Pixel values are kept in float64 throughout; no quantisation is applied, so results reflect pure rank truncation without additional compression artefacts.
